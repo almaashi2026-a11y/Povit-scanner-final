@@ -1,0 +1,26 @@
+import os
+
+# Telegram & API Keys
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+# فلاتر السوق
+MIN_PRICE = 0.20
+MAX_PRICE = 10.00
+MIN_VOLUME = 50000
+MIN_DOLLAR_VOLUME = 100000
+
+# منطق الارتكاز
+PIVOT_RANGE = 0.05
+PIVOT_TIGHT_RANGE = 0.03
+
+# السكور
+MIN_SCORE = 60
+
+# إعدادات التشغيل
+BATCH_SIZE = 100
+REQUEST_DELAY = 0.5
+BATCH_DELAY = 30
+SCAN_INTERVAL = 120
+COOLDOWN_HOURS = 1
