@@ -1,6 +1,7 @@
 class ScoreEngine:
     def calculate(self, pivot_data, price, volume, avg_volume):
         score = 0
+
         if pivot_data["pivot"]:
             score += 35
         if pivot_data["volume_dry"]:
@@ -23,6 +24,7 @@ class ScoreEngine:
                 score += 7
             elif ratio >= 1.5:
                 score += 5
+
         return min(score, 100)
 
 
