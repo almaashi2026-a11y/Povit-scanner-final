@@ -1,5 +1,6 @@
 import time
 import json
+import random
 import logging
 from datetime import datetime, timedelta
 
@@ -9,6 +10,7 @@ from market_filter import market_filter
 from pivot_detector import pivot_detector
 from scoring import score_engine
 from telegram_bot import telegram_bot
+from symbols_list import SYMBOL_POOL
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,20 +35,6 @@ class StateManager:
         with open(self.file, "w") as f:
             json.dump(self.state, f, indent=2)
 
-    def get_index(self):
-        return self.state.get("last_index", 0)
-
-    def set_index(self, idx):
-        self.state["last_index"] = idx
-        self.save()
-
-    def get_symbols(self):
-        return self.state.get("symbols", [])
-
-    def set_symbols(self, symbols):
-        self.state["symbols"] = symbols
-        self.save()
-
     def is_cooldown(self, symbol):
         last_alert = self.state["last_alerts"].get(symbol)
         if not last_alert:
@@ -65,16 +53,14 @@ class PivotScanner:
         self.symbols = self.load_symbols()
 
     def load_symbols(self):
-        symbols = self.state.get_symbols()
+        # نحاول نجيب قائمة السوق الحقيقية كاملة من Finnhub (بدون تحديد مسبق)
+        symbols = client.get_us_symbols()
         if symbols:
             return symbols
-        logging.info("Fetching US symbol list from Finnhub...")
-        symbols = client.get_us_symbols()
-        if not symbols:
-            logging.error("Failed to fetch symbols, using fallback list")
-            symbols = ["AAPL", "TSLA", "AMD", "PLTR", "SOFI"]
-        self.state.set_symbols(symbols)
-        return symbols
+
+        # لو فشل Finnhub نهائياً بعد كل المحاولات، نرجع للقائمة الثابتة كخط دفاع أخير
+        logging.error(f"Finnhub symbol fetch failed completely, falling back to static pool ({len(SYMBOL_POOL)} symbols)")
+        return SYMBOL_POOL
 
     def process_symbol(self, symbol):
         try:
@@ -132,23 +118,17 @@ class PivotScanner:
         self.state.update_alert(symbol)
 
     def run_batch(self):
-        start_index = self.state.get_index()
-        end_index = start_index + config.BATCH_SIZE
-        batch = self.symbols[start_index:end_index]
+        # عينة عشوائية من قائمة السوق كل دورة
+        batch_size = min(config.BATCH_SIZE, len(self.symbols))
+        batch = random.sample(self.symbols, batch_size)
 
-        if not batch:
-            logging.info("Restarting symbol cycle...")
-            start_index, end_index = 0, config.BATCH_SIZE
-            batch = self.symbols[start_index:end_index]
+        logging.info(f"Processing random batch of {batch_size} symbols (pool size {len(self.symbols)})")
 
-        logging.info(f"Processing batch {start_index} → {end_index} of {len(self.symbols)}")
-
-        for i, symbol in enumerate(batch, start=start_index):
+        for symbol in batch:
             result = self.process_symbol(symbol)
             if result:
                 logging.info(f"Signal: {result}")
                 self.send_alert(result)
-            self.state.set_index(i + 1)
             time.sleep(config.REQUEST_DELAY)
 
     def run(self):
